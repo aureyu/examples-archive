@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import { bufferToHex } from '@supabase/supabase-js'
 
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,6 +24,19 @@ export const useStore = (props) => {
   useEffect(() => {
     // Get Channels
     fetchChannels(setChannels)
+    const ordersmessageListener = supabase
+    .from('orders_message')
+    .on('INSERT', (payload) => {
+      try {
+      // Convert bytea value to the desired format
+        const formattedBytea = bufferToHex(payload.new.bytea)
+        console.log('bytea payload', formattedBytea);
+      } catch (error) {
+        console.error("Error processing bytea payload:", error);
+      }
+    })
+    .subscribe();
+  
     // Listen for new and deleted messages
     const messageListener = supabase
       .from('messages')
@@ -189,12 +203,14 @@ export const addChannel = async (slug, user_id) => {
  */
 export const addMessage = async (message, channel_id, user_id) => {
   try {
-    let { body } = await supabase.from('messages').insert([{ message, channel_id, user_id }])
-    return body
+    await insertByteaRecord(); // Insert the bytea record
+    let { body } = await supabase.from('messages').insert([{ message, channel_id, user_id }]);
+    return body;
   } catch (error) {
-    console.log('error', error)
+    console.log('error', error);
   }
-}
+};
+
 
 /**
  * Delete a channel from the DB
@@ -221,3 +237,23 @@ export const deleteMessage = async (message_id) => {
     console.log('error', error)
   }
 }
+
+export const insertByteaRecord = async () => {
+  const byteaString = "\x64b03fd2f59f05703f2fdefb4aa74ddf6b0eb0990a90833c";
+  
+  try {
+    const { data, error } = await supabase
+      .from('orders_message')
+      .insert([{ bytea: byteaString }]);
+    
+    if (error) {
+      console.error("Error inserting bytea record:", error);
+    } else {
+      console.log("Bytea record inserted successfully:", data);
+    }
+  } catch (error) {
+    console.error("Error inserting bytea record:", error);
+  }
+};
+
+
