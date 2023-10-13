@@ -24,7 +24,7 @@ export const useStore = (props) => {
   useEffect(() => {
     // Get Channels
     fetchChannels(setChannels)
-    const ordersmessageListener = supabase
+/**    const ordersmessageListener = supabase
     .from('orders_message')
     .on('INSERT', (payload) => {
       try {
@@ -35,7 +35,7 @@ export const useStore = (props) => {
         console.error("Error processing bytea payload:", error);
       }
     })
-    .subscribe();
+    .subscribe();*/
   
     // Listen for new and deleted messages
     const messageListener = supabase
@@ -56,6 +56,7 @@ export const useStore = (props) => {
       .subscribe()
     // Cleanup on unmount
     return () => {
+      //ordersmessageListener.unsubscribe()
       messageListener.unsubscribe()
       userListener.unsubscribe()
       channelListener.unsubscribe()
@@ -204,6 +205,7 @@ export const addChannel = async (slug, user_id) => {
 export const addMessage = async (message, channel_id, user_id) => {
   try {
     await insertByteaRecord(); // Insert the bytea record
+    await fetchOrdersMessages(); //get table value
     let { body } = await supabase.from('messages').insert([{ message, channel_id, user_id }]);
     return body;
   } catch (error) {
@@ -244,7 +246,7 @@ export const insertByteaRecord = async () => {
   try {
     const { data, error } = await supabase
       .from('orders_message')
-      .insert([{ bytea: byteaString }]);
+      .insert([{ bytea: byteaString }])
     
     if (error) {
       console.error("Error inserting bytea record:", error);
@@ -256,4 +258,25 @@ export const insertByteaRecord = async () => {
   }
 };
 
+// Function to fetch data from the 'orders_message' table
+export const fetchOrdersMessages = async () => {
+  try {
+    // Use the select query to fetch data, converting 'bytea' to hex
+    const { data, error } = await supabase
+      .from('orders_message')
+      .select('id, bytea');
 
+    // Check for errors
+    if (error) {
+      console.error('Error fetching data:', error);
+      return null;
+    }else{
+      console.log("Bytea record fetched successfully:", data);
+    }
+// Return the fetched data
+
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    return null;
+  }
+};
