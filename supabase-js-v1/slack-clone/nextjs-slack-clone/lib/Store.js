@@ -50,7 +50,9 @@ export const useStore = (props) => {
     const orderlistener = supabase
       .from('orders_message')
       .on({event: 'INSERT', schema: 'public', table: 'orders_message'}, 
-        (payload) => {handleNeworderMessage(payload.new); console.log("bytea payload", payload.new.bytea)})
+        (payload) => {
+          handleNeworderMessage(payload.new); console.log("bytea payload", payload.new.bytea)
+        })
       .subscribe()
     
     // Cleanup on unmount
@@ -210,9 +212,11 @@ export const addChannel = async (slug, user_id) => {
  */
 export const addMessage = async (message, channel_id, user_id) => {
   try {
-    await insertByteaRecord(); // Insert the bytea record
-    await fetchOrdersMessages(); //get table value
+    //await insertByteaRecord(); // Insert the bytea record
     let { body } = await supabase.from('messages').insert([{ message, channel_id, user_id }]);
+    await supabase.from('orders_message').insert([{ bytea: message }]);
+    console.log("Bytea record inserted successfully:", message);
+    await fetchOrdersMessages(); //get table value
     return body;
   } catch (error) {
     console.log('error', error);
@@ -249,7 +253,8 @@ export const deleteMessage = async (message_id) => {
 
 //editing
 export const insertByteaRecord = async () => {
-  const byteaString = "\x64b03fd2f59f05703f2fdefb4aa74ddf6b0eb0990a90833c";
+  //const byteaString = "\x64b03fd2f59f05703f2fdefb4aa74ddf6b0eb0990a90833c";
+  const byteaString = "1";
   
   try {
     const { data, error } = await supabase
@@ -272,7 +277,9 @@ export const fetchOrdersMessages = async () => {
     // Use the select query to fetch data, converting 'bytea' to hex
     const { data, error } = await supabase
       .from('orders_message')
-      .select('id, bytea');
+      .select('id, bytea')
+      .order('id', { ascending: false })
+      .limit(1);
 
     // Check for errors
     if (error) {
