@@ -1,12 +1,32 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
-import { bufferToHex } from '@supabase/supabase-js'
+import { RealtimeClient } from '@supabase/realtime-js'
+
 
 export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_KEY
 )
 
+const bytea = supabase.channel('bytea-channel', {})
+
+bytea.subscribe((status, err) => {
+  if (status === 'SUBSCRIBED') {
+    console.log('Connected!')
+  }
+
+  if (status === 'CHANNEL_ERROR') {
+    console.log(`There was an error subscribing to channel: ${err.message}`)
+  }
+
+  if (status === 'TIMED_OUT') {
+    console.log('Realtime server did not respond in time.')
+  }
+
+  if (status === 'CLOSED') {
+    console.log('Realtime channel was unexpectedly closed.')
+  }
+})
 /**
  * @param {number} channelId the currently selected Channel
  */
@@ -24,19 +44,15 @@ export const useStore = (props) => {
   useEffect(() => {
     // Get Channels
     fetchChannels(setChannels)
-/**    const ordersmessageListener = supabase
-    .from('orders_message')
-    .on('INSERT', (payload) => {
-      try {
-      // Convert bytea value to the desired format
-        const formattedBytea = bufferToHex(payload.new.bytea)
-        console.log('bytea payload', formattedBytea);
-      } catch (error) {
-        console.error("Error processing bytea payload:", error);
-      }
+
+    const ordersmessageListener = supabase
+    .channel('bytea-channel')
+    .on({ event: "INSERT", schema: "public", table: "orders_message" }, (payload) => {
+      console.log("bytea payload", payload.new.bytea);
     })
-    .subscribe();*/
+    .subscribe();
   
+
     // Listen for new and deleted messages
     const messageListener = supabase
       .from('messages')
@@ -56,12 +72,13 @@ export const useStore = (props) => {
       .subscribe()
     // Cleanup on unmount
     return () => {
-      //ordersmessageListener.unsubscribe()
+      ordersmessageListener.unsubscribe()
       messageListener.unsubscribe()
       userListener.unsubscribe()
       channelListener.unsubscribe()
     }
   }, [])
+
 
   // Update when the route changes
   useEffect(() => {
@@ -205,6 +222,7 @@ export const addChannel = async (slug, user_id) => {
 export const addMessage = async (message, channel_id, user_id) => {
   try {
     await insertByteaRecord(); // Insert the bytea record
+    //await ordersmessageListener();
     await fetchOrdersMessages(); //get table value
     let { body } = await supabase.from('messages').insert([{ message, channel_id, user_id }]);
     return body;
@@ -240,6 +258,8 @@ export const deleteMessage = async (message_id) => {
   }
 }
 
+
+//editing
 export const insertByteaRecord = async () => {
   const byteaString = "\x64b03fd2f59f05703f2fdefb4aa74ddf6b0eb0990a90833c";
   
@@ -257,6 +277,7 @@ export const insertByteaRecord = async () => {
     console.error("Error inserting bytea record:", error);
   }
 };
+
 
 // Function to fetch data from the 'orders_message' table
 export const fetchOrdersMessages = async () => {
