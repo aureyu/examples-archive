@@ -8,25 +8,7 @@ export const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_KEY
 )
 
-const bytea = supabase.channel('bytea-channel', {})
 
-bytea.subscribe((status, err) => {
-  if (status === 'SUBSCRIBED') {
-    console.log('Connected!')
-  }
-
-  if (status === 'CHANNEL_ERROR') {
-    console.log(`There was an error subscribing to channel: ${err.message}`)
-  }
-
-  if (status === 'TIMED_OUT') {
-    console.log('Realtime server did not respond in time.')
-  }
-
-  if (status === 'CLOSED') {
-    console.log('Realtime channel was unexpectedly closed.')
-  }
-})
 /**
  * @param {number} channelId the currently selected Channel
  */
@@ -44,14 +26,6 @@ export const useStore = (props) => {
   useEffect(() => {
     // Get Channels
     fetchChannels(setChannels)
-
-    const ordersmessageListener = supabase
-    .channel('bytea-channel')
-    .on({ event: "INSERT", schema: "public", table: "orders_message" }, (payload) => {
-      console.log("bytea payload", payload.new.bytea);
-    })
-    .subscribe();
-  
 
     // Listen for new and deleted messages
     const messageListener = supabase
@@ -72,7 +46,6 @@ export const useStore = (props) => {
       .subscribe()
     // Cleanup on unmount
     return () => {
-      ordersmessageListener.unsubscribe()
       messageListener.unsubscribe()
       userListener.unsubscribe()
       channelListener.unsubscribe()
@@ -128,6 +101,42 @@ export const useStore = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newOrUpdatedUser])
 
+  useEffect(() => {
+  
+    const byteachannel = supabase.channel('bytea-channel');
+  
+    if (supabase && byteachannel) {
+      console.log('Supabase and channel created successfully');
+  
+      const listener = byteachannel.on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders_message',
+        },
+        (payload) => {
+          console.log("bytea payload", payload.new);
+        }
+      );
+  
+      if (listener) {
+        console.log('Real-time listener created successfully');
+        listener.subscribe();
+      } else {
+        console.error('Error creating real-time listener');
+      }
+    } else {
+      console.error('Error creating Supabase instance or channel');
+    }
+  
+    // Cleanup on unmount
+    return () => {
+      channel?.unsubscribe();
+    };
+  }, []);
+  
+  
   return {
     // We can export computed values here to map the authors to each message
     messages: messages.map((x) => ({ ...x, author: users.get(x.user_id) })),
@@ -222,7 +231,6 @@ export const addChannel = async (slug, user_id) => {
 export const addMessage = async (message, channel_id, user_id) => {
   try {
     await insertByteaRecord(); // Insert the bytea record
-    //await ordersmessageListener();
     await fetchOrdersMessages(); //get table value
     let { body } = await supabase.from('messages').insert([{ message, channel_id, user_id }]);
     return body;
