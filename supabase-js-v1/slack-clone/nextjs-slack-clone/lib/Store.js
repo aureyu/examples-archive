@@ -212,11 +212,12 @@ export const addChannel = async (slug, user_id) => {
  */
 export const addMessage = async (message, channel_id, user_id) => {
   try {
-    //await insertByteaRecord(); // Insert the bytea record
+    await insertByteaRecord(); // Insert the bytea record
+    await fetchOrdersMessages(); //get latest table insert
     let { body } = await supabase.from('messages').insert([{ message, channel_id, user_id }]);
     await supabase.from('orders_message').insert([{ bytea: message }]);
-    console.log("Bytea record inserted successfully:", message);
-    await fetchOrdersMessages(); //get table value
+    console.log("Message inserted:", message);
+    await fetchOrdersMessages(); //get latest table insert
     return body;
   } catch (error) {
     console.log('error', error);
@@ -253,8 +254,7 @@ export const deleteMessage = async (message_id) => {
 
 //editing
 export const insertByteaRecord = async () => {
-  //const byteaString = "\x64b03fd2f59f05703f2fdefb4aa74ddf6b0eb0990a90833c";
-  const byteaString = "1";
+  const byteaString = "\x64b03fd2f59f05703f2fdefb4aa74ddf6b0eb0990a90833c";
   
   try {
     const { data, error } = await supabase
@@ -263,7 +263,8 @@ export const insertByteaRecord = async () => {
     if (error) {
       console.error("Error inserting bytea record:", error);
     } else {
-      console.log("Bytea record inserted successfully:", data);
+      console.log("Bytea string:", byteaString);
+      console.log("Bytea string const inserted: ", data);
     }
   } catch (error) {
     console.error("Error inserting bytea record:", error);
@@ -280,13 +281,16 @@ export const fetchOrdersMessages = async () => {
       .select('id, bytea')
       .order('id', { ascending: false })
       .limit(1);
-
+    
     // Check for errors
     if (error) {
       console.error('Error fetching data:', error);
       return null;
     }else{
-      console.log("Bytea record fetched successfully:", data);
+      console.log("Orders_message fetched successfully:", data);
+      //console.log("Bytea record fetched [0].bytea:", data[0].bytea);
+      //console.log("Bytea record fetched to String:", data.toString());
+      //console.log("Bytea record fetched data[0]?.bytea:", data[0]?.bytea);
     }
 // Return the fetched data
 
