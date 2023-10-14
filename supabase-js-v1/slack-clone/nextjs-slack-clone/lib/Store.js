@@ -16,9 +16,11 @@ export const useStore = (props) => {
   const [channels, setChannels] = useState([])
   const [messages, setMessages] = useState([])
   const [users] = useState(new Map())
+  const [orders_message, setorderMessages] = useState([])
   const [newMessage, handleNewMessage] = useState(null)
   const [newChannel, handleNewChannel] = useState(null)
   const [newOrUpdatedUser, handleNewOrUpdatedUser] = useState(null)
+  const [neworderMessage, handleNeworderMessage] = useState(null)
   const [deletedChannel, handleDeletedChannel] = useState(null)
   const [deletedMessage, handleDeletedMessage] = useState(null)
 
@@ -44,8 +46,16 @@ export const useStore = (props) => {
       .on('INSERT', (payload) => handleNewChannel(payload.new))
       .on('DELETE', (payload) => handleDeletedChannel(payload.old))
       .subscribe()
+
+    const orderlistener = supabase
+      .from('orders_message')
+      .on({event: 'INSERT', schema: 'public', table: 'orders_message'}, 
+        (payload) => {handleNeworderMessage(payload.new); console.log("bytea payload", payload.new.bytea)})
+      .subscribe()
+    
     // Cleanup on unmount
     return () => {
+      orderlistener.unsubscribe()
       messageListener.unsubscribe()
       userListener.unsubscribe()
       channelListener.unsubscribe()
@@ -100,43 +110,13 @@ export const useStore = (props) => {
     if (newOrUpdatedUser) users.set(newOrUpdatedUser.id, newOrUpdatedUser)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newOrUpdatedUser])
-
+  
+    
   useEffect(() => {
-  
-    const byteachannel = supabase.channel('bytea-channel');
-  
-    if (supabase && byteachannel) {
-      console.log('Supabase and channel created successfully');
-  
-      const listener = byteachannel.on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'orders_message',
-        },
-        (payload) => {
-          console.log("bytea payload", payload.new);
-        }
-      );
-  
-      if (listener) {
-        console.log('Real-time listener created successfully');
-        listener.subscribe();
-      } else {
-        console.error('Error creating real-time listener');
-      }
-    } else {
-      console.error('Error creating Supabase instance or channel');
-    }
-  
-    // Cleanup on unmount
-    return () => {
-      channel?.unsubscribe();
-    };
-  }, []);
-  
-  
+    if (neworderMessage) setorderMessages(orders_message.concat(neworderMessage))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [neworderMessage])
+
   return {
     // We can export computed values here to map the authors to each message
     messages: messages.map((x) => ({ ...x, author: users.get(x.user_id) })),
@@ -275,7 +255,6 @@ export const insertByteaRecord = async () => {
     const { data, error } = await supabase
       .from('orders_message')
       .insert([{ bytea: byteaString }])
-    
     if (error) {
       console.error("Error inserting bytea record:", error);
     } else {
