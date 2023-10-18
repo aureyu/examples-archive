@@ -24,6 +24,8 @@ export const useStore = (props) => {
   const [deletedChannel, handleDeletedChannel] = useState(null)
   const [deletedMessage, handleDeletedMessage] = useState(null)
 
+  console.log("useStore")
+
   // Load initial data and set up listeners
   useEffect(() => {
     // Get Channels
@@ -46,21 +48,23 @@ export const useStore = (props) => {
       .on('INSERT', (payload) => handleNewChannel(payload.new))
       .on('DELETE', (payload) => handleDeletedChannel(payload.old))
       .subscribe()
-
-    const orderlistener = supabase
+  
+    const orderListener = supabase
       .from('orders_message')
-      .on({event: 'INSERT', schema: 'public', table: 'orders_message'}, 
-        (payload) => {
-          handleNeworderMessage(payload.new); console.log("bytea payload", payload.new.bytea)
-        })
+      .on('*', (payload) => console.log("orderlistener", payload.new))
       .subscribe()
-    
+
+    // const channels = supabase.getChannels()
+    // console.log(channels)
+    // console.log("subscription was called")
+
     // Cleanup on unmount
     return () => {
-      orderlistener.unsubscribe()
+     // orderlistener.unsubscribe()
       messageListener.unsubscribe()
       userListener.unsubscribe()
       channelListener.unsubscribe()
+      console.log("unsubscribed")
     }
   }, [])
 
